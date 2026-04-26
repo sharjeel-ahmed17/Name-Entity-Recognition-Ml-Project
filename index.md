@@ -5,7 +5,7 @@
 
 # why we use uv .
 
-## ![alt text](image-10.png)
+## ![alt text](images/image-10.png)
 
 ---
 
@@ -27,10 +27,10 @@
 - uv run python -m spacy download en_core_web_sm
 - create file <ner.py>
 - uv run <ner.py>
-  ![alt text](image.png)
+  ![alt text](images/image.png)
 - uv add fastapi uvicorn
 - crete fastapi endpoints in main.py file
-  ![alt text](image-1.png)
+  ![alt text](images/image-1.png)
 - create .dockerignore and Dockerfile
 - ask gpt to what content write in .dockerignore and Dockerfile
 - you can also copy paste my content for Dockerfile and .dockerignore .
@@ -39,13 +39,13 @@
 - download and install docker desktop on pc/laptop .
 - wsl --install -d Ubuntu
 - in vs code terminal open wsl(ubuntu)
-  ![alt text](image-2.png)
+  ![alt text](images/image-2.png)
 - activate cmd = wsl -d Ubuntu
 - create docker image .
 - docker build -t <image-name>
 - before build image make sure docker desktop is open in your system .
 - if you give any error when build image ask gpt to solve it .
-  ![alt text](image-3.png)
+  ![alt text](images/image-3.png)
 - and rebuild image .
 - rebuild again and again it saved image in cache .
 - after creating image now run image on container .
@@ -62,20 +62,20 @@
 - container port
 - host port
 
-![alt text](image-4.png)
+![alt text](images/image-4.png)
 
 - docker run -d -p 8000:8000 --name ner-api-container ner-api
 
-![alt text](image-5.png)
-![alt text](image-6.png)
+![alt text](images/image-5.png)
+![alt text](images/image-6.png)
 
 - before push image in docker hub .
 - add tag in image .
 - login docker hub .
 - docker login
-  ![alt text](image-7.png)
+  ![alt text](images/image-7.png)
 
-![alt text](image-8.png)
+![alt text](images/image-8.png)
 
 - ## tag your image
 
@@ -85,7 +85,7 @@ docker tag <image_name> <docker_hub_username>/<image_name>:latest
 
 ---
 
-![alt text](image-9.png)
+![alt text](images/image-9.png)
 
 - last but not least .
 - push your image into docker hub .

@@ -19,9 +19,6 @@ for _, annotations in TRAIN_DATA:
     for ent in annotations.get("entities"):
         ner.add_label(ent[2])
 
-# =========================
-# 6. TRAIN MODEL
-# =========================
 optimizer = nlp.begin_training()
 
 for i in range(20):
