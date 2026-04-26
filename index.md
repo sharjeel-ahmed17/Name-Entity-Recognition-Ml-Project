@@ -1,6 +1,26 @@
 - create github repo
 - git clone <repo_url>
-- pip install uv
+- pip install uv <only one time install >
+- create project and assignment using uv .
+
+# why we use uv .
+
+## ![alt text](image-10.png)
+
+---
+
+## 🚀 Why use `uv` instead of `pip`?
+
+- **⚡ Extreme Speed:** Up to 10–100x faster than pip due to its Rust core
+- **📦 Built-in Virtualenvs:** Creates virtual environments in milliseconds without extra tools
+- **🔄 Drop-in Compatibility:** Supports pip commands, making it easy to switch
+- **💾 Global Cache:** Reuses downloads across projects to save disk space and time
+- **🧠 Advanced Resolution:** Uses sophisticated logic to solve complex version conflicts
+- **🧩 Single Binary:** No Python installation is required to run the manager itself
+- **🛠️ Tool Management:** Can run Python scripts or tools (like Ruff or Black) in isolated temporary environments
+
+---
+
 - uv venv --python 3.12 .venv
 - .venv\Scripts\activate
 - uv add spacy
@@ -69,3 +89,16 @@ docker tag <image_name> <docker_hub_username>/<image_name>:latest
 
 - last but not least .
 - push your image into docker hub .
+
+- you can run my image on your machine linux , macos , windows .
+- pull image
+
+---
+
+docker pull sharjeelahmed017/ner-api:latest
+
+---
+
+- run my image on your container.
+
+- docker run -d -p 8000:8000 --name ner-api-container ner-api
