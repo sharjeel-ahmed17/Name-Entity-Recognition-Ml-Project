@@ -54,3 +54,18 @@
 - login docker hub .
 - docker login
   ![alt text](image-7.png)
+
+![alt text](image-8.png)
+
+- ## tag your image
+
+---
+
+docker tag <image_name> <docker_hub_username>/<image_name>:latest
+
+---
+
+![alt text](image-9.png)
+
+- last but not least .
+- push your image into docker hub .
