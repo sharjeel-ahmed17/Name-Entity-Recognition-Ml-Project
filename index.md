@@ -101,4 +101,7 @@ docker pull sharjeelahmed017/ner-api:latest
 
 - run my image on your container.
 
-- docker run -d -p 8000:8000 --name ner-api-container ner-api
+--
+docker run -d -p 8000:8000 --name ner-api-container ner-api
+
+---
