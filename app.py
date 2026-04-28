@@ -7,6 +7,9 @@ import streamlit as st
 import requests
 from typing import List, Optional
 import json
+from dotenv import load_dotenv
+load_dotenv()
+import os
 
 # Page configuration
 st.set_page_config(
@@ -120,7 +123,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # API Base URL configuration
-DEFAULT_API_URL = "http://localhost:8000"
+DEFAULT_API_URL = os.getenv("API_URL") or "http://localhost:8000"
 
 # Session state initialization
 if "api_url" not in st.session_state:

@@ -595,6 +595,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "python-dotenv" },
     { name = "requests" },
     { name = "spacy" },
     { name = "spacy-lookups-data" },
@@ -611,6 +612,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
+    { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "requests", specifier = ">=2.33.1" },
     { name = "spacy", specifier = ">=3.8.14" },
     { name = "spacy-lookups-data", specifier = ">=1.0.5" },
