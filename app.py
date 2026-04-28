@@ -1,13 +1,12 @@
 """
 Streamlit UI for Name Entity Recognition App
-A professional and visually appealing interface for NER analysis
+Consumes FastAPI backend endpoints
 """
 
 import streamlit as st
-import spacy
 import requests
-from typing import List, Dict, Any
-import time
+from typing import List, Optional
+import json
 
 # Page configuration
 st.set_page_config(
@@ -20,15 +19,71 @@ st.set_page_config(
 # Custom CSS for styling
 st.markdown("""
 <style>
-    /* Main gradient header */
+    /* Main container styling */
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+
+    /* Header styling */
     .main-header {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 2rem;
         border-radius: 1rem;
         margin-bottom: 1.5rem;
+        text-align: center;
     }
 
-    /* Entity card styling */
+    .main-header h1 {
+        color: white;
+        margin: 0;
+        font-size: 2.5rem;
+    }
+
+    .main-header p {
+        color: rgba(255, 255, 255, 0.9);
+        margin-top: 0.5rem;
+        font-size: 1.1rem;
+    }
+
+    /* Entity badge styling */
+    .entity-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 1rem;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin: 0.25rem;
+    }
+
+    .badge-PERSON { background: #e3f2fd; color: #1565c0; }
+    .badge-GPE { background: #e8f5e9; color: #2e7d32; }
+    .badge-ORG { background: #f3e5f5; color: #7b1fa2; }
+    .badge-default { background: #fff3e0; color: #ef6c00; }
+
+    /* Stats cards */
+    .stat-card {
+        background: white;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        text-align: center;
+        border: 1px solid #e0e0e0;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #667eea;
+    }
+
+    .stat-label {
+        color: #666;
+        font-size: 0.9rem;
+        margin-top: 0.25rem;
+    }
+
+    /* Entity card */
     .entity-card {
         background: #f8f9fa;
         border-left: 4px solid #667eea;
@@ -37,161 +92,248 @@ st.markdown("""
         margin: 0.5rem 0;
     }
 
-    /* Entity type badges */
-    .badge {
-        padding: 0.25rem 0.75rem;
-        border-radius: 1rem;
-        font-size: 0.875rem;
-        font-weight: 600;
-    }
-
-    .badge-PERSON { background: #e3f2fd; color: #1565c0; }
-    .badge-GPE { background: #e8f5e9; color: #2e7d32; }
-    .badge-ORG { background: #f3e5f5; color: #7b1fa2; }
-
-    /* Stats card */
-    .stats-card {
+    /* Highlighted text container */
+    .highlight-container {
         background: white;
-        border-radius: 0.75rem;
         padding: 1.5rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        text-align: center;
+        border-radius: 0.75rem;
+        border: 1px solid #e0e0e0;
+        line-height: 2;
+        font-size: 1.1rem;
     }
 
-    /* Highlighted text */
-    .highlighted-entity {
+    /* Entity highlight spans */
+    .entity-highlight {
         background: linear-gradient(120deg, #a8e6cf 0%, #dcedc1 100%);
-        padding: 0.1rem 0.3rem;
-        border-radius: 0.25rem;
-        font-weight: 500;
+        padding: 0.15rem 0.4rem;
+        border-radius: 0.3rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .entity-highlight:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
     }
 </style>
 """, unsafe_allow_html=True)
 
-# Title and description
+# API Base URL configuration
+DEFAULT_API_URL = "http://localhost:8000"
+
+# Session state initialization
+if "api_url" not in st.session_state:
+    st.session_state.api_url = DEFAULT_API_URL
+if "last_results" not in st.session_state:
+    st.session_state.last_results = None
+
+# Header
 st.markdown("""
-<div style="text-align: center; padding: 1rem 0;">
-    <h1 style="font-size: 2.5rem; margin-bottom: 0.5rem;">🏷️ Named Entity Recognition</h1>
-    <p style="color: #666; font-size: 1.1rem;">Extract and analyze named entities from your text using AI</p>
+<div class="main-header">
+    <h1>🏷️ Named Entity Recognition</h1>
+    <p>Extract and analyze named entities from text using AI-powered NER</p>
 </div>
 """, unsafe_allow_html=True)
 
-# Load the NER model
-@st.cache_resource
-def load_model():
-    """Load the trained NER model"""
-    try:
-        return spacy.load("ner_model")
-    except OSError:
-        st.warning("Custom model not found. Using default model.")
-        return spacy.load("en_core_web_sm")
-
-nlp = load_model()
-
-# Sidebar with options
+# Sidebar configuration
 with st.sidebar:
-    st.markdown("### ⚙️ Settings")
+    st.markdown("### ⚙️ API Configuration")
+
+    api_url = st.text_input(
+        "FastAPI Backend URL",
+        value=st.session_state.api_url,
+        placeholder="http://localhost:8000",
+        help="URL of the FastAPI NER backend"
+    )
+
+    if api_url != st.session_state.api_url:
+        st.session_state.api_url = api_url
+        st.rerun()
+
+    st.markdown("---")
+
+    # Health check
+    st.markdown("### 🔌 Connection Status")
+    try:
+        health_response = requests.get(f"{api_url}/health", timeout=5)
+        if health_response.status_code == 200:
+            st.success("✅ Connected")
+            st.json(health_response.json())
+        else:
+            st.error("❌ Connection failed")
+    except requests.exceptions.ConnectionError:
+        st.error("❌ Cannot connect to API")
+        st.info(f"Make sure the FastAPI server is running at `{api_url}`")
+        st.code("python main.py")
+    except Exception as e:
+        st.error(f"❌ Error: {str(e)}")
+
+    st.markdown("---")
+
+    # Fetch available labels
+    st.markdown("### 🏷️ Entity Types")
+    try:
+        labels_response = requests.get(f"{api_url}/labels", timeout=5)
+        if labels_response.status_code == 200:
+            labels = labels_response.json().get("available_labels", [])
+            for label in labels:
+                badge_class = f"badge-{label}" if label in ["PERSON", "GPE", "ORG"] else "badge-default"
+                st.markdown(f'<span class="entity-badge {badge_class}">{label}</span>', unsafe_allow_html=True)
+        else:
+            st.caption("PERSON, GPE, ORG")
+    except:
+        st.caption("PERSON, GPE, ORG")
 
     st.markdown("---")
     st.markdown("### ℹ️ About")
     st.info("""
-    This app uses a trained spaCy NER model to recognize:
+    This app connects to a FastAPI backend
+    that uses spaCy NER to recognize:
     - **PERSON**: People's names
-    - **GPE**: Geographic places (cities, countries)
+    - **GPE**: Geographic places
     - **ORG**: Organizations
     """)
 
-    st.markdown("---")
-    st.markdown("### 📊 Available Labels")
-    if "ner" in nlp.pipe_names:
-        ner = nlp.get_pipe("ner")
-        labels = list(ner.labels)
-    else:
-        labels = ["PERSON", "GPE", "ORG"]
-
-    for label in labels:
-        st.markdown(f"- **{label}**")
-
-# Main content tabs
-tab1, tab2, tab3 = st.tabs(["🔍 Single Text", "📚 Batch Processing", "ℹ️ Model Info"])
+# Main tabs
+tab1, tab2, tab3 = st.tabs(["🔍 Single Text", "📚 Batch Processing", "📖 API Docs"])
 
 with tab1:
+    st.markdown("### Analyze Single Text")
+
     # Input section
-    col1, col2 = st.columns([3, 1])
+    col1, col2 = st.columns([4, 1])
 
     with col1:
         text_input = st.text_area(
-            "Enter your text to analyze:",
-            height=150,
-            placeholder="e.g., Ali lives in Karachi and works at Apple",
+            "Enter text to analyze:",
+            height=120,
+            placeholder="e.g., Ali lives in Karachi and works at Apple. Sara works at Microsoft in Lahore.",
             label_visibility="collapsed"
         )
 
     with col2:
+        st.markdown("<div style='padding-top: 2.5rem;'>", unsafe_allow_html=True)
         analyze_btn = st.button("🚀 Analyze", type="primary", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    if analyze_btn and text_input:
-        with st.spinner("Analyzing text..."):
-            # Process text
-            doc = nlp(text_input)
-            entities = list(doc.ents)
+    if analyze_btn:
+        if not text_input.strip():
+            st.warning("⚠️ Please enter some text to analyze.")
+        else:
+            with st.spinner("🔍 Analyzing text..."):
+                try:
+                    # Call FastAPI endpoint
+                    response = requests.post(
+                        f"{api_url}/recognize",
+                        json={"text": text_input, "include_scores": False},
+                        timeout=30
+                    )
 
-            # Display results
-            st.markdown("---")
-            st.markdown("### 📋 Analysis Results")
+                    if response.status_code == 200:
+                        result = response.json()
+                        st.session_state.last_results = result
 
-            # Stats row
-            cols = st.columns(4)
-            with cols[0]:
-                st.metric("Total Entities", len(entities))
-            with cols[1]:
-                st.metric("Characters", len(text_input))
-            with cols[2]:
-                st.metric("Words", len(text_input.split()))
-            with cols[3]:
-                entity_types = len(set(e.label_ for e in entities))
-                st.metric("Unique Types", entity_types)
+                        entities = result.get("entities", [])
 
-            # Highlighted text display
-            st.markdown("#### ✨ Highlighted Text")
-            highlighted_html = ""
-            last_idx = 0
+                        # Stats display
+                        st.markdown("---")
+                        st.markdown("### 📊 Results")
 
-            for ent in sorted(entities, key=lambda x: x.start_char):
-                highlighted_html += text_input[last_idx:ent.start_char]
-                highlighted_html += f'<mark style="background: #a8e6cf; padding: 2px 4px; border-radius: 4px;">{ent.text}</mark>'
-                last_idx = ent.end_char
+                        cols = st.columns(4)
+                        with cols[0]:
+                            st.markdown(f"""
+                            <div class="stat-card">
+                                <div class="stat-value">{len(entities)}</div>
+                                <div class="stat-label">Entities Found</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        with cols[1]:
+                            st.markdown(f"""
+                            <div class="stat-card">
+                                <div class="stat-value">{len(text_input)}</div>
+                                <div class="stat-label">Characters</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        with cols[2]:
+                            st.markdown(f"""
+                            <div class="stat-card">
+                                <div class="stat-value">{len(text_input.split())}</div>
+                                <div class="stat-label">Words</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        with cols[3]:
+                            unique_types = len(set(e["label"] for e in entities))
+                            st.markdown(f"""
+                            <div class="stat-card">
+                                <div class="stat-value">{unique_types}</div>
+                                <div class="stat-label">Entity Types</div>
+                            </div>
+                            """, unsafe_allow_html=True)
 
-            highlighted_html += text_input[last_idx:]
-            st.markdown(highlighted_html, unsafe_allow_html=True)
+                        # Highlighted text
+                        st.markdown("#### ✨ Highlighted Text")
 
-            # Entity details table
-            if entities:
-                st.markdown("#### 📦 Entity Details")
+                        if entities:
+                            # Sort entities by start position
+                            sorted_entities = sorted(entities, key=lambda x: x["start"])
 
-                for i, ent in enumerate(entities, 1):
-                    # Create expandable card for each entity
-                    with st.expander(f"**{i}. {ent.text}**", expanded=True):
-                        c1, c2, c3, c4 = st.columns(4)
-                        with c1:
-                            st.markdown("**Type:**")
-                            st.markdown(f"<span class='badge badge-{ent.label_}'>{ent.label_}</span>", unsafe_allow_html=True)
-                        with c2:
-                            st.metric("Start", ent.start_char)
-                        with c3:
-                            st.metric("End", ent.end_char)
-                        with c4:
-                            st.metric("Length", ent.end_char - ent.start_char)
-            else:
-                st.info("No entities found in the provided text.")
+                            # Build highlighted HTML
+                            highlighted = ""
+                            last_end = 0
 
-    elif analyze_btn and not text_input:
-        st.warning("Please enter some text to analyze.")
+                            for ent in sorted_entities:
+                                highlighted += text_input[last_end:ent["start"]]
+                                badge_class = f"badge-{ent['label']}" if ent["label"] in ["PERSON", "GPE", "ORG"] else "badge-default"
+                                highlighted += f'<span class="entity-highlight" title="{ent["label"]}">{ent["text"]}</span>'
+                                last_end = ent["end"]
+
+                            highlighted += text_input[last_end:]
+
+                            st.markdown(f"""
+                            <div class="highlight-container">{highlighted}</div>
+                            """, unsafe_allow_html=True)
+
+                            # Entity details table
+                            st.markdown("#### 📦 Entity Details")
+
+                            for i, ent in enumerate(entities, 1):
+                                with st.expander(f"**#{i}.** `{ent['text']}`", expanded=True):
+                                    c1, c2, c3, c4 = st.columns(4)
+                                    with c1:
+                                        badge_class = f"badge-{ent['label']}" if ent["label"] in ["PERSON", "GPE", "ORG"] else "badge-default"
+                                        st.markdown(f"**Type:**<br><span class='entity-badge {badge_class}'>{ent['label']}</span>", unsafe_allow_html=True)
+                                    with c2:
+                                        st.metric("Start", ent["start"])
+                                    with c3:
+                                        st.metric("End", ent["end"])
+                                    with c4:
+                                        st.metric("Length", ent["end"] - ent["start"])
+                        else:
+                            st.info("📭 No entities found in the provided text.")
+                            st.markdown(f"""
+                            <div class="highlight-container">{text_input}</div>
+                            """, unsafe_allow_html=True)
+
+                        # Raw JSON response
+                        with st.expander("📄 View Raw JSON Response"):
+                            st.json(result)
+
+                    else:
+                        st.error(f"❌ API Error: {response.status_code}")
+                        st.error(response.json().get("detail", "Unknown error"))
+
+                except requests.exceptions.ConnectionError:
+                    st.error("❌ Cannot connect to API. Make sure the FastAPI server is running.")
+                    st.code("python main.py")
+                except requests.exceptions.Timeout:
+                    st.error("❌ Request timed out. Please try again.")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
 
 with tab2:
-    # Batch processing
-    st.markdown("### Process Multiple Texts")
-    st.markdown("Enter multiple texts (one per line) for batch entity recognition:")
+    st.markdown("### Batch Processing")
+    st.markdown("Enter multiple texts (one per line) to process in batch:")
 
     batch_input = st.text_area(
         "Batch input:",
@@ -202,83 +344,130 @@ with tab2:
 
     batch_btn = st.button("📚 Process All", type="primary")
 
-    if batch_btn and batch_input:
-        texts = [line.strip() for line in batch_input.split("\n") if line.strip()]
+    if batch_btn:
+        if not batch_input.strip():
+            st.warning("⚠️ Please enter some texts to process.")
+        else:
+            texts = [line.strip() for line in batch_input.split("\n") if line.strip()]
 
-        with st.spinner("Processing batch..."):
-            results = []
-            for text in texts:
-                doc = nlp(text)
-                entities = [(ent.text, ent.label_, ent.start_char, ent.end_char) for ent in doc.ents]
-                results.append({
-                    "text": text,
-                    "entities": entities,
-                    "count": len(entities)
-                })
+            with st.spinner(f"🔍 Processing {len(texts)} texts..."):
+                try:
+                    # Call batch endpoint
+                    response = requests.post(
+                        f"{api_url}/recognize/batch",
+                        json=texts,
+                        timeout=60
+                    )
 
-            # Display results
-            st.markdown("---")
-            st.markdown(f"### 📊 Batch Results ({len(results)} texts)")
+                    if response.status_code == 200:
+                        results = response.json()
 
-            total_entities = sum(r["count"] for r in results)
-            c1, c2 = st.columns(2)
-            c1.metric("Total Texts", len(texts))
-            c2.metric("Total Entities Found", total_entities)
+                        # Summary stats
+                        total_entities = sum(r.get("entity_count", 0) for r in results)
+                        c1, c2, c3 = st.columns(3)
+                        c1.metric("Total Texts", len(texts))
+                        c2.metric("Total Entities", total_entities)
+                        c3.metric("Avg per Text", round(total_entities / len(texts), 2) if texts else 0)
 
-            # Results table
-            for i, result in enumerate(results, 1):
-                with st.expander(f"**Text {i}:** {result['text'][:50]}...", expanded=False):
-                    if result["entities"]:
-                        for ent_text, ent_label, start, end in result["entities"]:
-                            col_a, col_b, col_c = st.columns([2, 1, 1])
-                            with col_a:
-                                st.write(ent_text)
-                            with col_b:
-                                st.markdown(f"<span class='badge badge-{ent_label}'>{ent_label}</span>", unsafe_allow_html=True)
-                            with col_c:
-                                st.caption(f"Pos: {start}-{end}")
+                        st.markdown("---")
+                        st.markdown("### 📋 Results")
+
+                        for i, result in enumerate(results, 1):
+                            entities = result.get("entities", [])
+
+                            with st.expander(f"**Text {i}:** {result.get('text', '')[:60]}...", expanded=False):
+                                st.write(f"**Full text:** {result.get('text', '')}")
+                                st.write(f"**Entity count:** {result.get('entity_count', 0)}")
+
+                                if entities:
+                                    st.markdown("**Entities:**")
+                                    for ent in entities:
+                                        cc1, cc2, cc3 = st.columns([3, 1, 2])
+                                        with cc1:
+                                            st.write(f"📍 {ent['text']}")
+                                        with cc2:
+                                            badge_class = f"badge-{ent['label']}" if ent["label"] in ["PERSON", "GPE", "ORG"] else "badge-default"
+                                            st.markdown(f'<span class="entity-badge {badge_class}">{ent["label"]}</span>', unsafe_allow_html=True)
+                                        with cc3:
+                                            st.caption(f"Position: {ent['start']} - {ent['end']}")
+                                else:
+                                    st.caption("No entities found")
                     else:
-                        st.caption("No entities found")
+                        st.error(f"❌ API Error: {response.status_code}")
+                        st.error(response.json().get("detail", "Unknown error"))
 
-    elif batch_btn and not batch_input:
-        st.warning("Please enter some texts to process.")
+                except requests.exceptions.ConnectionError:
+                    st.error("❌ Cannot connect to API")
+                except Exception as e:
+                    st.error(f"❌ Error: {str(e)}")
 
 with tab3:
-    # Model information
-    st.markdown("### 🤖 Model Information")
+    st.markdown("### 📖 API Documentation")
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        st.metric("Model Type", "spaCy NER")
-    with c2:
-        st.metric("Labels", len(labels))
-    with c3:
-        st.metric("Pipeline", "ner")
+    st.markdown("""
+    This Streamlit app connects to a FastAPI backend with the following endpoints:
+    """)
+
+    st.markdown("#### 🔌 Endpoints")
+
+    st.markdown("""
+    | Method | Endpoint | Description |
+    |--------|----------|-------------|
+    | GET | `/` | Health check - API status |
+    | GET | `/health` | Health check with model status |
+    | POST | `/recognize` | Analyze single text for entities |
+    | POST | `/recognize/batch` | Analyze multiple texts |
+    | GET | `/labels` | Get available entity labels |
+    """)
+
+    st.markdown("#### 📝 Request/Response Examples")
+
+    st.markdown("**POST /recognize**")
+    st.code("""
+    # Request
+    {
+        "text": "Ali lives in Karachi",
+        "include_scores": false
+    }
+
+    # Response
+    {
+        "text": "Ali lives in Karachi",
+        "entities": [
+            {"text": "Ali", "label": "PERSON", "start": 0, "end": 3},
+            {"text": "Karachi", "label": "GPE", "start": 13, "end": 20}
+        ],
+        "entity_count": 2
+    }
+    """, language="json")
+
+    st.markdown("**POST /recognize/batch**")
+    st.code("""
+    # Request
+    ["Ali lives in Karachi", "Sara works at Google"]
+
+    # Response
+    [
+        {
+            "text": "Ali lives in Karachi",
+            "entities": [...],
+            "entity_count": 2
+        },
+        {
+            "text": "Sara works at Google",
+            "entities": [...],
+            "entity_count": 2
+        }
+    ]
+    """, language="json")
 
     st.markdown("---")
-    st.markdown("### 🏷️ Entity Labels")
-
-    for label in labels:
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            st.markdown(f"<span class='badge badge-{label}'>{label}</span>", unsafe_allow_html=True)
-        with col2:
-            if label == "PERSON":
-                st.caption("People's names (real and fictional)")
-            elif label == "GPE":
-                st.caption("Countries, cities, states")
-            elif label == "ORG":
-                st.caption("Companies, agencies, institutions")
-            else:
-                st.caption("Custom entity type")
-
-    st.markdown("---")
-    st.success("✅ Model loaded successfully!")
+    st.info(f"🔗 API Base URL: `{api_url}`")
 
 # Footer
 st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #888; padding: 1rem;">
-    <p>🏷️ NER Analyzer • Built with Streamlit & spaCy</p>
+    <p>🏷️ NER Analyzer • Frontend: Streamlit | Backend: FastAPI + spaCy</p>
 </div>
 """, unsafe_allow_html=True)
