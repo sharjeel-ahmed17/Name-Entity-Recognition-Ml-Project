@@ -1,0 +1,88 @@
+name: Deploy to Kubernetes
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+      
+      - name: Configure kubeconfig
+        run: |
+          mkdir -p $HOME/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
+          chmod 600 $HOME/.kube/config
+      
+      - name: Set deployment environment
+        id: env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/tags/v"* ]]; then
+            echo "DEPLOY_ENV=production" >> $GITHUB_OUTPUT
+            echo "IMAGE_TAG=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "DEPLOY_ENV=staging" >> $GITHUB_OUTPUT
+            echo "IMAGE_TAG=latest" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Update image tags in manifests
+        run: |
+          REGISTRY=ghcr.io
+          REPO=${{ github.repository }}
+          IMAGE_TAG=${{ steps.env.outputs.IMAGE_TAG }}
+          
+          sed -i "s|image: .*ner-backend:.*|image: ${REGISTRY}/${REPO}:${IMAGE_TAG}|g" k8s-backend-deployment.yaml
+          sed -i "s|image: .*ner-frontend:.*|image: ${REGISTRY}/${REPO}-frontend:${IMAGE_TAG}|g" k8s-frontend-deployment.yaml
+      
+      - name: Create namespace
+        run: kubectl create namespace ner-app-${{ steps.env.outputs.DEPLOY_ENV }} --dry-run=client -o yaml | kubectl apply -f -
+      
+      - name: Apply network policies
+        run: kubectl apply -f k8s-network-policy.yaml -n ner-app-${{ steps.env.outputs.DEPLOY_ENV }}
+      
+      - name: Apply ConfigMaps and Secrets
+        run: kubectl apply -f k8s-namespace-config-hpa.yaml -n ner-app-${{ steps.env.outputs.DEPLOY_ENV }}
+      
+      - name: Apply backend deployment
+        run: kubectl apply -f k8s-backend-deployment.yaml -n ner-app-${{ steps.env.outputs.DEPLOY_ENV }}
+      
+      - name: Apply frontend deployment
+        run: kubectl apply -f k8s-frontend-deployment.yaml -n ner-app-${{ steps.env.outputs.DEPLOY_ENV }}
+      
+      - name: Wait for deployments to be ready
+        run: |
+          kubectl rollout status deployment/ner-backend -n ner-app-${{ steps.env.outputs.DEPLOY_ENV }} --timeout=5m
+          kubectl rollout status deployment/ner-frontend -n ner-app-${{ steps.env.outputs.DEPLOY_ENV }} --timeout=5m
+      
+      - name: Get deployment info
+        if: success()
+        run: |
+          echo "Deployment Status:"
+          kubectl get deployment -n ner-app-${{ steps.env.outputs.DEPLOY_ENV }}
+          echo "\nServices:"
+          kubectl get service -n ner-app-${{ steps.env.outputs.DEPLOY_ENV }}
+          echo "\nPods:"
+          kubectl get pods -n ner-app-${{ steps.env.outputs.DEPLOY_ENV }}
