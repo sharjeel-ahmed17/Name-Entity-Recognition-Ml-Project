@@ -123,8 +123,18 @@ This project uses [`uv`](https://github.com/astral-sh/uv) for dependency managem
 
 MIT
 
+## Links
+
+- **GitHub Repository**: [https://github.com/sharjeel-ahmed17/Name-Entity-Recognition-Ml-Project](https://github.com/sharjeel-ahmed17/Name-Entity-Recognition-Ml-Project)
+- **Hugging Face Demo**: [https://sharjeel17-name-identity-recognizaion.hf.space/](https://sharjeel17-name-identity-recognizaion.hf.space/)
+- **Streamlit App**: [https://name-identity-recognition.streamlit.app/](https://name-identity-recognition.streamlit.app/)
+
 ## Author
 
 Sharjeel Ahmed
 
 [Docker Hub](https://hub.docker.com/r/sharjeelahmed017/ner-api)
+
+```bash
+docker pull sharjeelahmed017/ner-api
+```
