@@ -1,0 +1,73 @@
+version: '3.9'
+
+services:
+  backend:
+    image: ${DOCKER_HUB_USERNAME}/ner-backend:latest
+    container_name: ner-backend-prod
+    restart: always
+    environment:
+      - PORT=8000
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=info
+    ports:
+      - "8000:8000"
+    networks:
+      - ner-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.docker.compose.project=ner-prod"
+      - "app=ner-backend"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  frontend:
+    image: ${DOCKER_HUB_USERNAME}/ner-frontend:latest
+    container_name: ner-frontend-prod
+    restart: always
+    environment:
+      - API_URL=http://backend:8000
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_CLIENT_LOGGER_LEVEL=info
+    ports:
+      - "8501:8501"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - ner-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      - "com.docker.compose.project=ner-prod"
+      - "app=ner-frontend"
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  ner-network:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.enable_ip_masquerade: 'true'
