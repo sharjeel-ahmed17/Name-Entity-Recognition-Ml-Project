@@ -5,7 +5,7 @@
 
 # why we use uv .
 
-## ![alt text](images/image-10.png)
+## ![alt text](images/project_img_0.png)
 
 ---
 
@@ -27,10 +27,10 @@
 - uv run python -m spacy download en_core_web_sm
 - create file <ner.py>
 - uv run <ner.py>
-  ![alt text](images/image.png)
+  ![alt text](images/project_img_1.png)
 - uv add fastapi uvicorn
-- crete fastapi endpoints in main.py file
-  ![alt text](images/image-1.png)
+- create fastapi endpoints in main.py file
+  ![alt text](images/project_img_2.png)
 - create .dockerignore and Dockerfile
 - ask gpt to what content write in .dockerignore and Dockerfile
 - you can also copy paste my content for Dockerfile and .dockerignore .
@@ -105,3 +105,7 @@ docker pull sharjeelahmed017/ner-api:latest
 docker run -d -p 8000:8000 --name ner-api-container ner-api
 
 ---
+
+![alt text](image.png)
+![alt text](image-1.png)
+![alt text](image-2.png)

@@ -2,6 +2,8 @@
 
 A FastAPI-based REST API for Named Entity Recognition (NER) using spaCy. This project trains a custom NER model to recognize entities like **PERSON**, **GPE** (geopolitical entities), and **ORG** (organizations) in text.
 
+![Project Overview](images/project_img_0.png)
+
 ## Features
 
 - Custom NER model trained with spaCy
@@ -42,6 +44,8 @@ curl -X POST http://localhost:8000/recognize \
 }
 ```
 
+![API Example](images/project_img_1.png)
+
 ## Quick Start
 
 ### Local Development
@@ -73,6 +77,8 @@ uv run python main.py
 ```
 
 Visit http://localhost:8000/docs for interactive API documentation.
+
+![FastAPI Endpoints](images/project_img_2.png)
 
 ### Docker
 
